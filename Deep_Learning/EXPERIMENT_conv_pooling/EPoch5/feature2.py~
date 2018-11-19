@@ -1,0 +1,55 @@
+import matplotlib.pyplot as plt
+from keras.models import model_from_json
+from keras import backend as K
+from keras.models import Model
+import cv2
+import numpy as np
+
+json_file = open('model.json', 'r')
+loaded_model_json = json_file.read()
+json_file.close()
+loaded_model = model_from_json(loaded_model_json)
+# load weights into new model
+loaded_model.load_weights("model.h5")
+print("Loaded model from disk")
+h=loaded_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+model = loaded_model
+
+
+def get_layer_outputs():
+	test_image = cv2.imread("1.png",1)
+	test_image =np.resize(test_image,(1,64,64,1))
+	outputs    = [layer.output for layer in model.layers] 
+	comp_graph = [K.function([model.input]+ [K.learning_phase()], [output]) for output in outputs]  # evaluation functions 	
+	
+	layer_outputs_list = [op([test_image, 1.]) for op in comp_graph]
+	#print(layer_outputs_list)
+	layer_outputs = []
+	for layer_output in layer_outputs_list:
+		layer_outputs.append(layer_output[0][0])
+
+	return layer_outputs
+
+def plot_layer_outputs(layer_number):
+	layer_outputs = get_layer_outputs()
+
+	x_max = layer_outputs[layer_number].shape[0]
+	y_max = layer_outputs[layer_number].shape[1]
+	n= layer_outputs[layer_number].shape[2]
+	L = []
+	for i in range(n):
+		L.append(np.zeros((x_max, y_max)))
+
+	for i in range(n):
+		for x in range(x_max):
+			for y in range(y_max):
+				L[i][x][y] = layer_outputs[layer_number][x][y][i]
+
+	k=0
+ 	for img in L:
+		name="layer0_"+str(k)+".png"
+		cv2.imwrite(name,img)
+		k=k+1
+
+
+plot_layer_outputs(0)
